@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .validators import (check_meeting_room_exists,
+from ..validators import (check_meeting_room_exists,
                          check_reservation_intersections,
                          check_reservation_before_edit)
+from app.core.user import current_user
+from app.models.user import User
 from app.crud.reservation import reservation_crud
 from app.core.db import get_async_session
 from app.schemas.reservation import (ReservationDb, ReservationCreate,
@@ -16,7 +18,9 @@ router = APIRouter()
 @router.post('/', response_model=ReservationDb)
 async def create_reservation(
     reservation: ReservationCreate,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    # Получаем текущего пользователя и сохраняем в переменную user.
+    user: User = Depends(current_user),
 ):
     await check_meeting_room_exists(
         reservation.meetingroom_id, session
@@ -28,7 +32,7 @@ async def create_reservation(
     )
 
     new_reservation = await reservation_crud.create(
-        reservation, session
+        reservation, session, user
     )
     return new_reservation
 
