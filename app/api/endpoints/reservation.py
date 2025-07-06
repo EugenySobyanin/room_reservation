@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..validators import (check_meeting_room_exists,
-                         check_reservation_intersections,
-                         check_reservation_before_edit)
-from app.core.user import current_user
+                          check_reservation_intersections,
+                          check_reservation_before_edit)
+from app.core.user import current_user, current_superuser
 from app.models.user import User
 from app.crud.reservation import reservation_crud
 from app.core.db import get_async_session
@@ -37,10 +37,16 @@ async def create_reservation(
     return new_reservation
 
 
-@router.get('/', response_model=list[ReservationDb])
+@router.get(
+    '/',
+    response_model=list[ReservationDb],
+    response_model_exclude={'user_id'},
+)
 async def get_all_reservations(
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    ependencies=[Depends(current_superuser)],
 ):
+    """Только для суперюзеров."""
     reservations = await reservation_crud.get_multi(session)
     return reservations
 
@@ -48,9 +54,11 @@ async def get_all_reservations(
 @router.delete('/{reservation_id}', response_model=ReservationDb)
 async def delete_reservation(
     reservation_id: int,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    user: User = Depends(current_user),
 ):
-    reservation = await check_reservation_before_edit(reservation_id, session)
+    """Для суперюзеров и авторов брони."""
+    reservation = await check_reservation_before_edit(reservation_id, session, user)
     reservation = await reservation_crud.remove(reservation, session)
     return reservation
 
@@ -60,10 +68,12 @@ async def update_reservation(
         reservation_id: int,
         obj_in: ReservationUpdate,
         session: AsyncSession = Depends(get_async_session),
+        user: User = Depends(current_user),
 ):
+    """Для суперюзеров и авторов брони."""
     # Проверяем, что такой объект бронирования вообще существует.
     reservation = await check_reservation_before_edit(
-        reservation_id, session
+        reservation_id, session, user
     )
     # Проверяем, что нет пересечений с другими бронированиями.
     await check_reservation_intersections(
@@ -82,3 +92,16 @@ async def update_reservation(
         session=session,
     )
     return reservation
+
+
+@router.get(
+    '/my_reservations',
+    response_model=list[ReservationDb],
+    response_model_exclude={'user_id'},
+)
+async def get_my_reservations(
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_async_session),
+):
+    reservations = await reservation_crud.get_by_user(user, session)
+    return reservations
