@@ -22,9 +22,10 @@ async def get_user_db(session: AsyncSession = Depends(get_async_session)):
 
 
 # Определяем транспорт: передавать токен будем
-# через заголовок HTTP-запроса Authorization: Bearer. 
+# через заголовок HTTP-запроса Authorization: Bearer
 # Указываем URL эндпоинта для получения токена.
 bearer_transport = BearerTransport(tokenUrl='auth/jwt/login')
+
 
 # Определяем стратегию: хранение токена в виде JWT.
 def get_jwt_strategy() -> JWTStrategy:
@@ -32,6 +33,7 @@ def get_jwt_strategy() -> JWTStrategy:
     # передаётся секретное слово, используемое для генерации токена.
     # Вторым аргументом передаём срок действия токена в секундах.
     return JWTStrategy(secret=settings.secret, lifetime_seconds=3600)
+
 
 # Создаём объект бэкенда аутентификации с выбранными параметрами.
 auth_backend = AuthenticationBackend(
@@ -67,6 +69,7 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
     ):
         # Вместо print здесь можно было бы настроить отправку письма.
         print(f'Пользователь {user.email} зарегистрирован.')
+
 
 # Корутина, возвращающая объект класса UserManager.
 async def get_user_manager(user_db=Depends(get_user_db)):
